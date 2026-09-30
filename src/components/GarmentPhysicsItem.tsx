@@ -24,7 +24,7 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
   onSelect,
   hoveredIndex,
   onHoverChange,
-  slotSpacing = 82,
+  slotSpacing = 78,
   externalImpulse = 0,
   onNeighborImpulse,
 }) => {
@@ -34,7 +34,12 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
   const shadowRef = useRef<HTMLDivElement>(null);
 
   const isCurrentHovered = hoveredIndex === index;
-  const [isHoveredState, setIsHoveredState] = useState<boolean>(false);
+  const [sideRatioState, setSideRatioState] = useState<number>(isCurrentHovered ? 0 : 1);
+
+  // Sync sideRatio state with hover
+  useEffect(() => {
+    setSideRatioState(isCurrentHovered ? 0 : 1);
+  }, [isCurrentHovered]);
 
   // Full 3D Physics Simulation State in Ref for 60/120fps direct hardware transforms
   const physics = useRef({
@@ -96,24 +101,24 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
     } else if (hoveredIndex === index) {
       // Currently hovered shirt: swivels to face FRONT (0 deg) and pulls forward in Z
       p.targetAngleY = 0;
-      p.targetTranslateZ = 45;
+      p.targetTranslateZ = 48;
       p.targetOffsetX = 0;
       p.targetAngleX = 2; // subtle forward drape
     } else if (index < hoveredIndex) {
       // Clothes to the left of the hovered shirt: part to the left along the rod
       const dist = hoveredIndex - index;
-      const partShift = -48 * Math.exp(-(dist - 1) * 0.75);
+      const partShift = -58 * Math.exp(-(dist - 1) * 0.72);
       p.targetOffsetX = partShift;
-      p.targetAngleY = -72; // angled slightly tighter to show front of hovered item
-      p.targetTranslateZ = -5 * Math.exp(-dist);
+      p.targetAngleY = -74; // angled slightly tighter to show front of hovered item
+      p.targetTranslateZ = -8 * Math.exp(-dist);
       p.targetAngleX = 0;
     } else {
       // Clothes to the right of the hovered shirt: part to the right along the rod
       const dist = index - hoveredIndex;
-      const partShift = 48 * Math.exp(-(dist - 1) * 0.75);
+      const partShift = 58 * Math.exp(-(dist - 1) * 0.72);
       p.targetOffsetX = partShift;
-      p.targetAngleY = -64; // angled slightly outward
-      p.targetTranslateZ = -5 * Math.exp(-dist);
+      p.targetAngleY = -62; // angled slightly outward
+      p.targetTranslateZ = -8 * Math.exp(-dist);
       p.targetAngleX = 0;
     }
   }, [hoveredIndex, index]);
@@ -141,8 +146,8 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
 
       if (!p.isDragging) {
         // --- 1. Y-Axis Swivel Physics (Side to Front with Spring-Damper) ---
-        const springKY = 42.0;
-        const dampingY = 5.2;
+        const springKY = 44.0;
+        const dampingY = 5.4;
         const diffY = p.targetAngleY - p.angleY;
         const accY = diffY * springKY - p.velocityY * dampingY;
         p.velocityY += accY * dt;
@@ -179,13 +184,11 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
         p.translateZ += (p.targetTranslateZ - p.translateZ) * 0.18;
 
         // --- 6. Cloth Drape Lag & Ripple Flutter ---
-        // Lag opposes angular motion
         const targetClothLag = -p.velocityZ * 0.22 - p.velocityY * 0.08;
         p.clothVelocity += (targetClothLag - p.clothLagAngle) * 26.0 * dt - p.clothVelocity * 5.0 * dt;
         p.clothLagAngle += p.clothVelocity * dt * 60;
         p.clothLagAngle = Math.max(-6, Math.min(6, p.clothLagAngle));
 
-        // Dynamic flutter wave when moving
         const totalMovement = Math.abs(p.velocityZ) + Math.abs(p.velocityY) + Math.abs(p.velocityOffsetX);
         if (totalMovement > 0.05) {
           p.clothFlutterPhase += dt * 14;
@@ -231,10 +234,9 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
       }
 
       if (shadowRef.current) {
-        // Dynamic drop shadow that widens when facing front and narrows when facing side
         const radY = (p.angleY * Math.PI) / 180;
         const frontFacingFactor = Math.abs(Math.cos(radY)); // 0 when side, 1 when front
-        const shadowWidth = (50 + frontFacingFactor * 130).toFixed(0);
+        const shadowWidth = (52 + frontFacingFactor * 135).toFixed(0);
         const shadowOpacity = (0.14 + frontFacingFactor * 0.08).toFixed(2);
         const shadowX = (p.offsetX - p.angleZ * 1.4).toFixed(1);
 
@@ -252,7 +254,6 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
 
   // Pointer Hover Handlers
   const handlePointerEnter = (e: React.PointerEvent) => {
-    setIsHoveredState(true);
     onHoverChange(index);
 
     const p = physics.current;
@@ -275,7 +276,6 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
         p.hasMovedSignificantly = true;
       }
 
-      // Dragging swivels in Y and swings in Z
       const targetY = Math.max(-80, Math.min(45, p.dragStartAngleY + deltaX * 0.38));
       const targetZ = Math.max(-25, Math.min(25, p.dragStartAngleZ + deltaX * 0.22));
       const targetX = Math.max(-12, Math.min(15, -deltaY * 0.15));
@@ -294,7 +294,6 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
       return;
     }
 
-    // While hovering over the front-facing shirt, subtle interactive cursor tracking
     const now = performance.now();
     const dt = Math.max((now - p.lastMouseTime) / 1000, 0.008);
     const deltaX = e.clientX - p.lastMouseX;
@@ -304,7 +303,6 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
 
     p.mouseSpeedX = p.mouseSpeedX * 0.5 + (deltaX / dt) * 0.5;
 
-    // Organic micro-yaw and gentle sway when moving mouse over shirt
     if (Math.abs(p.mouseSpeedX) > 90) {
       const impulseZ = Math.max(-2.0, Math.min(2.0, (p.mouseSpeedX / 550) * 1.5));
       p.velocityZ += impulseZ * 0.2;
@@ -312,7 +310,6 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
   };
 
   const handlePointerLeave = () => {
-    setIsHoveredState(false);
     onHoverChange(null);
     soundEngine.playClothRustle(0.3);
   };
@@ -355,20 +352,14 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
     }
 
     if (!p.hasMovedSignificantly) {
-      // Clean click: pull forward into full detail modal!
       soundEngine.playClothRustle(0.6);
       onSelect(garment);
     } else {
-      // Released from drag: clamp release velocities for smooth harmonic settle
       p.velocityY = Math.max(-8, Math.min(8, p.velocityY));
       p.velocityZ = Math.max(-5, Math.min(5, p.velocityZ));
       soundEngine.playHangerClink(0.45);
     }
   };
-
-  // Calculate side-view darkening factor based on angleY
-  const angleYRad = (physics.current.angleY * Math.PI) / 180;
-  const isFacingSide = Math.abs(Math.sin(angleYRad)); // 1 when side, 0 when front
 
   return (
     <div
@@ -392,7 +383,7 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
         } ${isCurrentHovered ? 'z-40' : 'z-10'}`}
       >
         {/* Rod Contact Hook Glider on the Chrome Rod */}
-        <div className="absolute -top-[14px] left-1/2 -translate-x-1/2 w-3 h-5 bg-gradient-to-b from-slate-200 via-slate-300 to-slate-400 rounded-full shadow-xs z-30 opacity-90 pointer-events-none" />
+        <div className="absolute -top-[14px] left-1/2 -translate-x-1/2 w-2.5 h-4.5 bg-gradient-to-b from-slate-200 via-slate-400 to-slate-600 rounded-full shadow-xs z-30 opacity-95 pointer-events-none" />
 
         {/* Dynamic drop shadow on pegboard wall */}
         <div
@@ -413,14 +404,14 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
           <GarmentRenderer
             garment={garment}
             isDetailed={false}
-            lightingDim={isFacingSide * 0.22}
+            sideRatio={sideRatioState}
           />
         </div>
       </div>
 
       {/* FIXED STATIC HIT-BOX OVERLAY (Follows slot on the rod, perfect stability) */}
       <div
-        className="absolute inset-0 top-0 h-[360px] z-50 cursor-grab active:cursor-grabbing touch-none"
+        className="absolute inset-0 top-0 h-[380px] z-50 cursor-grab active:cursor-grabbing touch-none"
         onPointerEnter={handlePointerEnter}
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
@@ -429,19 +420,17 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
         onPointerCancel={handlePointerUp}
       />
 
-      {/* Floating Info Pill when garment swivels to face front */}
+      {/* Clean caption matching reference image (`Made This Tee — Black`) */}
       <div
-        className={`absolute bottom-[-18px] flex flex-col items-center pointer-events-none transition-all duration-200 z-50 ${
-          isCurrentHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'
+        className={`absolute bottom-[-28px] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none transition-all duration-200 z-50 ${
+          isCurrentHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95 pointer-events-none'
         }`}
       >
-        <div className="flex items-center gap-1.5 px-3 py-1 bg-stone-900/90 text-stone-100 backdrop-blur-sm rounded-full text-[11px] font-medium shadow-md whitespace-nowrap">
-          <span className="font-semibold">{garment.name}</span>
-          <span className="text-stone-400 font-mono">·</span>
-          <span className="text-stone-300 font-mono tabular-nums">${garment.price}</span>
+        <div className="text-[12px] sm:text-[13px] font-medium text-stone-700 tracking-tight whitespace-nowrap drop-shadow-xs">
+          {garment.name} <span className="text-stone-400">—</span> {garment.colorName}
         </div>
-        <div className="text-[9px] text-stone-500 mt-0.5 uppercase tracking-wider font-mono">
-          Click to inspect details
+        <div className="text-[10px] font-mono text-stone-400 tracking-wider">
+          ${garment.price} · Click to inspect
         </div>
       </div>
     </div>

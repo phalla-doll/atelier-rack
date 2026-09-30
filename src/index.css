@@ -10,14 +10,14 @@
   }
 }
 
-/* Pegboard Wall Pattern */
+/* Pegboard Wall Pattern matching reference image */
 .pegboard-bg {
-  background-color: #F4EFE6;
+  background-color: #EDECE8;
   background-image: 
-    radial-gradient(circle, rgba(165, 150, 130, 0.45) 1.75px, transparent 2.2px),
-    radial-gradient(circle, rgba(255, 255, 255, 0.75) 1.5px, transparent 1.9px);
-  background-size: 32px 32px, 32px 32px;
-  background-position: 0 0, 0 1px;
+    radial-gradient(circle, rgba(160, 150, 138, 0.55) 2.2px, transparent 2.8px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.95) 2px, transparent 2.5px);
+  background-size: 36px 36px, 36px 36px;
+  background-position: 0 0, 0 1.2px;
 }
 
 /* Chrome Rod Sheen */
