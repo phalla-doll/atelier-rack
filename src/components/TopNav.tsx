@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Sparkles, SlidersHorizontal, Info, X } from 'lucide-react';
+import { Volume2, VolumeX, Sparkles, Info, X } from 'lucide-react';
 import { soundEngine } from '../utils/audio.ts';
 
 interface TopNavProps {
@@ -23,21 +23,21 @@ export const TopNav: React.FC<TopNavProps> = ({
     setSoundEnabled(next);
     soundEngine.enabled = next;
     if (next) {
-      soundEngine.playHangerClink(0.5);
+      soundEngine.playHangerClink(0.45);
     }
   };
 
   return (
     <>
-      <header className="relative w-full z-30 bg-[#F5F1E8]/90 backdrop-blur-md border-b border-stone-300/60 px-4 sm:px-8 py-3.5 flex items-center justify-between">
-        {/* LEFT ZONE: Navigation Links & Filter Segments */}
-        <div className="flex items-center gap-4 sm:gap-6">
-          <nav className="flex items-center gap-1.5 p-1 bg-stone-200/70 rounded-lg text-xs font-medium">
+      <header className="relative w-full z-30 bg-[#EDECE8]/80 backdrop-blur-md border-b border-stone-300/70 px-4 sm:px-8 py-3 flex items-center justify-between">
+        {/* LEFT ZONE: Segmented Filter Control */}
+        <div className="flex items-center gap-3">
+          <nav className="flex items-center p-0.5 bg-stone-200/80 rounded-lg border border-stone-300/50 text-xs font-medium">
             <button
               onClick={() => onFilterChange('all')}
-              className={`px-3 py-1 rounded-md transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap cursor-pointer ${
                 activeFilter === 'all'
-                  ? 'bg-white text-stone-900 shadow-xs font-semibold'
+                  ? 'bg-stone-900 text-white font-semibold shadow-xs'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
             >
@@ -45,9 +45,9 @@ export const TopNav: React.FC<TopNavProps> = ({
             </button>
             <button
               onClick={() => onFilterChange('t-shirt')}
-              className={`px-3 py-1 rounded-md transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap cursor-pointer ${
                 activeFilter === 't-shirt'
-                  ? 'bg-white text-stone-900 shadow-xs font-semibold'
+                  ? 'bg-stone-900 text-white font-semibold shadow-xs'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
             >
@@ -55,9 +55,9 @@ export const TopNav: React.FC<TopNavProps> = ({
             </button>
             <button
               onClick={() => onFilterChange('long-sleeve')}
-              className={`px-3 py-1 rounded-md transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap cursor-pointer ${
                 activeFilter === 'long-sleeve'
-                  ? 'bg-white text-stone-900 shadow-xs font-semibold'
+                  ? 'bg-stone-900 text-white font-semibold shadow-xs'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
             >
@@ -66,26 +66,26 @@ export const TopNav: React.FC<TopNavProps> = ({
           </nav>
         </div>
 
-        {/* CENTER ZONE: Centered Brand Wordmark */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
+        {/* CENTER ZONE: Brand Wordmark */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto">
           <a
             href="/"
-            className="text-base sm:text-xl font-black font-['Syne',sans-serif] tracking-widest text-stone-900 hover:opacity-85 transition-opacity whitespace-nowrap"
+            className="text-base sm:text-lg font-black font-['Syne',sans-serif] tracking-widest text-stone-900 hover:opacity-80 transition-opacity whitespace-nowrap"
           >
             ATELIER RACK
           </a>
-          <span className="hidden sm:block text-[9px] font-mono tracking-widest text-stone-500 uppercase -mt-0.5">
-            Apparel Physics Showcase
+          <span className="hidden md:block text-[9px] font-mono tracking-widest text-stone-500 uppercase -mt-0.5">
+            Cloth Dynamics Archive
           </span>
         </div>
 
-        {/* RIGHT ZONE: Audio Toggle & Studio Info */}
-        <div className="flex items-center gap-3">
+        {/* RIGHT ZONE: Consistent Utility Controls */}
+        <div className="flex items-center gap-2">
           {/* Quick Hanger Breeze Action */}
           <button
             onClick={onNudgeAll}
-            title="Swing clothing rack"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-stone-700 bg-white/70 hover:bg-white rounded-lg border border-stone-200/80 shadow-2xs transition-all active:scale-95"
+            title="Simulate rack breeze wave"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-stone-700 bg-white/90 hover:bg-white rounded-lg border border-stone-300 shadow-2xs transition-all active:scale-97 cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-600" />
             <span>Gentle Breeze</span>
@@ -94,8 +94,8 @@ export const TopNav: React.FC<TopNavProps> = ({
           {/* Sound Toggle */}
           <button
             onClick={toggleSound}
-            aria-label={soundEnabled ? 'Disable tactile sounds' : 'Enable tactile sounds'}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-stone-700 bg-white/70 hover:bg-white rounded-lg border border-stone-200/80 shadow-2xs transition-all"
+            aria-label={soundEnabled ? 'Disable tactile audio' : 'Enable tactile audio'}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-stone-700 bg-white/90 hover:bg-white rounded-lg border border-stone-300 shadow-2xs transition-all active:scale-97 cursor-pointer"
           >
             {soundEnabled ? (
               <>
@@ -110,10 +110,10 @@ export const TopNav: React.FC<TopNavProps> = ({
             )}
           </button>
 
-          {/* About / Manifesto Modal Trigger */}
+          {/* Studio Info Modal Trigger */}
           <button
             onClick={() => setAboutOpen(true)}
-            className="p-1.5 rounded-lg text-stone-600 hover:text-stone-900 hover:bg-stone-200/50 transition-colors"
+            className="p-1.5 rounded-lg text-stone-600 hover:text-stone-900 bg-white/90 hover:bg-white border border-stone-300 shadow-2xs transition-all cursor-pointer"
             aria-label="Studio Information"
           >
             <Info className="w-4 h-4" />
@@ -130,13 +130,13 @@ export const TopNav: React.FC<TopNavProps> = ({
           className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs"
         >
           <div
-            className="w-full max-w-lg bg-[#FAF8F5] rounded-2xl p-6 sm:p-8 shadow-2xl border border-stone-300 relative"
+            className="w-full max-w-lg bg-[#FAF8F5] rounded-2xl p-6 sm:p-8 shadow-2xl border border-stone-300 relative animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setAboutOpen(false)}
               aria-label="Close about modal"
-              className="absolute top-4 right-4 p-2 text-stone-500 hover:text-stone-900 rounded-lg hover:bg-stone-100"
+              className="absolute top-4 right-4 p-2 text-stone-500 hover:text-stone-900 rounded-lg hover:bg-stone-200/60 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -150,14 +150,14 @@ export const TopNav: React.FC<TopNavProps> = ({
 
             <div className="space-y-3 text-xs sm:text-sm text-stone-700 leading-relaxed">
               <p>
-                <strong>ATELIER RACK</strong> reimagines digital e-commerce as a tactile physical environment.
-                Garments hang from solid oak, walnut, and natural birch contoured hangers along a solid chrome wardrobe rail against a warm pegboard atelier wall.
+                <strong>ATELIER RACK</strong> models the physical presence of a high-end designer showroom wardrobe rail.
+                Clothes hang in true volumetric side-profile from solid oak, walnut, and natural birch contoured hangers along an industrial chrome rod.
               </p>
               <p>
-                Every garment simulates real physical pendulum equations ($g/L \sin\theta$) coupled with cloth drag inertia. When cursor moves or drags a shirt, the hanger tilts, the fabric swerves and sways with natural damping, and realistic contact clinks resonate via Web Audio synthesis.
+                Hovering over any garment swivels it in 3D perspective to face forward, while adjacent garments dynamically part along the rail with spring-damped elasticity.
               </p>
               <p>
-                Pulling any shirt forward isolates it in full focus, revealing high-density textile specifications, pattern origins, and limited run reservations.
+                Dragging simulates multi-axis physical pendulum swings, fabric lag, and synthesized acoustic wood-on-metal clinking.
               </p>
             </div>
 
@@ -165,7 +165,7 @@ export const TopNav: React.FC<TopNavProps> = ({
               <span>Tokyo · Milan · Porto</span>
               <button
                 onClick={() => setAboutOpen(false)}
-                className="px-4 py-2 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors"
+                className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-lg transition-colors cursor-pointer font-medium"
               >
                 Return to Rack
               </button>
