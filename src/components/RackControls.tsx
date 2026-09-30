@@ -44,12 +44,14 @@ export const RackControls: React.FC<RackControlsProps> = ({
       </div>
 
       {/* Physics & Interaction Hint */}
-      <div className="flex items-center gap-3 text-xs text-stone-500 font-mono">
-        <span className="hidden sm:inline">Tactile Rack:</span>
-        <span>Hover cursor to sway</span>
-        <span>·</span>
-        <span>Drag hanger to swing</span>
-        <span>·</span>
+      <div className="flex flex-wrap items-center justify-center gap-2.5 text-xs text-stone-500 font-mono text-center">
+        <span className="hidden sm:inline font-semibold text-stone-700">Real Rack Physics:</span>
+        <span>Hangs side-profile</span>
+        <span aria-hidden="true">·</span>
+        <span>Hover to swivel front & part rack</span>
+        <span aria-hidden="true">·</span>
+        <span>Drag to swing & slide rail</span>
+        <span aria-hidden="true">·</span>
         <span>Click to inspect</span>
       </div>
     </div>

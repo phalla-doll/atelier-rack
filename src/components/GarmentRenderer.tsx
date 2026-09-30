@@ -5,8 +5,10 @@ interface GarmentRendererProps {
   garment: Garment;
   isDetailed?: boolean;
   viewSide?: 'front' | 'back';
-  clothLagAngle?: number; // small relative angle (-3 to +3 deg)
-  clothSkew?: number;     // small shear factor (-4 to +4 deg)
+  clothLagAngle?: number;  // small relative angle (-4 to +4 deg)
+  clothSkew?: number;      // small shear factor (-5 to +5 deg)
+  clothFlutter?: number;   // dynamic wave displacement for hem
+  lightingDim?: number;    // 0 (full brightness) to 0.4 (side shadow)
 }
 
 export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
@@ -15,6 +17,8 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
   viewSide = 'front',
   clothLagAngle = 0,
   clothSkew = 0,
+  clothFlutter = 0,
+  lightingDim = 0,
 }) => {
   const isLongSleeve = garment.category === 'long-sleeve';
 
@@ -24,19 +28,22 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
       top: '#5A3720',
       mid: '#744629',
       bottom: '#3E2413',
-      grain: 'rgba(25, 12, 5, 0.25)',
+      grain: 'rgba(25, 12, 5, 0.28)',
+      edge: '#2A170B',
     },
     oak: {
       top: '#9E6F48',
       mid: '#BD8C5F',
       bottom: '#7A5231',
-      grain: 'rgba(55, 30, 10, 0.2)',
+      grain: 'rgba(55, 30, 10, 0.22)',
+      edge: '#50331C',
     },
     'natural-birch': {
       top: '#DECAA7',
       mid: '#EBD9BA',
       bottom: '#BAA27D',
-      grain: 'rgba(100, 75, 45, 0.15)',
+      grain: 'rgba(100, 75, 45, 0.16)',
+      edge: '#8A704E',
     },
   }[garment.hangerWood];
 
@@ -44,11 +51,18 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
   const clothGradId = `fabric-${garment.id}-${isDetailed ? 'detail' : 'rack'}`;
   const clipId = `clip-${garment.id}-${isDetailed ? 'detail' : 'rack'}`;
 
+  // Flutter wave calculations for bottom hem
+  const waveHem1 = clothFlutter * 4;
+  const waveHem2 = -clothFlutter * 3.5;
+
   return (
     <div
       className={`relative select-none pointer-events-none ${
-        isDetailed ? 'w-[380px] sm:w-[440px] md:w-[480px] h-[540px] sm:h-[600px]' : 'w-[210px] h-[320px]'
+        isDetailed ? 'w-[380px] sm:w-[440px] md:w-[480px] h-[540px] sm:h-[600px]' : 'w-[230px] h-[330px]'
       }`}
+      style={{
+        transformStyle: 'preserve-3d',
+      }}
     >
       <svg
         viewBox="0 0 400 500"
@@ -74,19 +88,19 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
 
           {/* Fabric lighting gradient */}
           <linearGradient id={clothGradId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#000000" stopOpacity="0.18" />
-            <stop offset="15%" stopColor="#FFFFFF" stopOpacity="0.08" />
-            <stop offset="50%" stopColor="#FFFFFF" stopOpacity="0.14" />
-            <stop offset="85%" stopColor="#FFFFFF" stopOpacity="0.04" />
-            <stop offset="100%" stopColor="#000000" stopOpacity="0.22" />
+            <stop offset="0%" stopColor="#000000" stopOpacity="0.22" />
+            <stop offset="15%" stopColor="#FFFFFF" stopOpacity="0.09" />
+            <stop offset="50%" stopColor="#FFFFFF" stopOpacity="0.16" />
+            <stop offset="85%" stopColor="#FFFFFF" stopOpacity="0.05" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0.26" />
           </linearGradient>
 
           {/* Vertical shadow gradient for depth */}
           <linearGradient id={`${clothGradId}-vert`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.12" />
-            <stop offset="8%" stopColor="#FFFFFF" stopOpacity="0.0" />
-            <stop offset="85%" stopColor="#000000" stopOpacity="0.0" />
-            <stop offset="100%" stopColor="#000000" stopOpacity="0.22" />
+            <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.14" />
+            <stop offset="10%" stopColor="#FFFFFF" stopOpacity="0.0" />
+            <stop offset="80%" stopColor="#000000" stopOpacity="0.0" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0.28" />
           </linearGradient>
 
           {/* Subtle tactile weave pattern */}
@@ -97,7 +111,7 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
 
           {/* Drop shadow filter for hanger */}
           <filter id={`${hangerId}-shadow`} x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="5" stdDeviation="4" floodOpacity="0.32" floodColor="#000" />
+            <feDropShadow dx="0" dy="5" stdDeviation="4" floodOpacity="0.35" floodColor="#000" />
           </filter>
 
           {/* Clip path for garment silhouette */}
@@ -155,7 +169,7 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                C 238 38 232 44 227 46"
             fill="none"
             stroke={`url(#${hangerId}-chrome)`}
-            strokeWidth="4.5"
+            strokeWidth="4.8"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -164,14 +178,28 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
           <path
             d="M 201 44 L 201 32 C 201 20 207 10 220 10"
             fill="none"
-            stroke="rgba(255, 255, 255, 0.85)"
-            strokeWidth="1.4"
+            stroke="rgba(255, 255, 255, 0.9)"
+            strokeWidth="1.5"
             strokeLinecap="round"
           />
         </g>
 
         {/* ---------------- 2. WOODEN HANGER BODY ---------------- */}
         <g id="wood-hanger" filter={`url(#${hangerId}-shadow)`}>
+          {/* Hanger back chamfer 3D edge */}
+          <path
+            d="M 200 50
+               C 222 52 288 68 342 100
+               L 338 106
+               C 285 74 220 58 200 56
+               C 180 58 115 74 62 106
+               L 58 100
+               C 112 68 178 52 200 50 Z"
+            fill={hangerWoodColors.edge}
+            opacity="0.8"
+          />
+
+          {/* Main contoured wooden hanger body */}
           <path
             d="M 200 52
                C 220 54 285 70 338 102
@@ -186,7 +214,7 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
           <path
             d="M 120 86 C 160 70 240 70 280 86"
             fill="none"
-            stroke="rgba(255, 255, 255, 0.22)"
+            stroke="rgba(255, 255, 255, 0.25)"
             strokeWidth="1.2"
           />
           <path
@@ -207,13 +235,13 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
           style={{
             transformOrigin: '200px 74px',
             transform: `rotate(${clothLagAngle}deg) skewX(${clothSkew}deg)`,
-            transition: 'transform 0.05s linear',
+            transition: 'transform 0.04s linear',
           }}
         >
           {/* Base Fabric Color */}
           {isLongSleeve ? (
             <path
-              d="M 152 74
+              d={`M 152 74
                  C 170 82 230 82 248 74
                  C 285 86 335 106 352 136
                  L 378 280
@@ -221,30 +249,30 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                  L 334 235
                  L 326 230
                  L 318 475
-                 C 260 478 140 478 82 475
+                 C ${260 + waveHem1} 478 ${140 + waveHem2} 478 82 475
                  L 74 230
                  L 66 235
                  L 46 298
                  C 32 302 20 295 22 280
                  L 48 136
-                 C 65 106 115 86 152 74 Z"
+                 C 65 106 115 86 152 74 Z`}
               fill={garment.colorHex}
             />
           ) : (
             <path
-              d="M 152 74
+              d={`M 152 74
                  C 170 82 230 82 248 74
                  C 288 88 340 106 366 142
                  C 370 148 368 158 358 162
                  L 326 174
                  L 318 206
                  L 310 475
-                 C 260 478 140 478 90 475
+                 C ${260 + waveHem1} 478 ${140 + waveHem2} 478 90 475
                  L 82 206
                  L 74 174
                  L 42 162
                  C 32 158 30 148 34 142
-                 C 60 106 112 88 152 74 Z"
+                 C 60 106 112 88 152 74 Z`}
               fill={garment.colorHex}
             />
           )}
@@ -258,31 +286,31 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
 
             {/* Natural cloth fold shadows & ripples */}
             <path
-              d="M 160 84 Q 175 240 165 470"
+              d={`M 160 84 Q 175 240 ${165 + waveHem1} 470`}
               fill="none"
-              stroke="rgba(0, 0, 0, 0.16)"
+              stroke="rgba(0, 0, 0, 0.18)"
               strokeWidth="12"
               filter="blur(5px)"
             />
             <path
-              d="M 240 84 Q 225 240 235 470"
+              d={`M 240 84 Q 225 240 ${235 + waveHem2} 470`}
               fill="none"
-              stroke="rgba(0, 0, 0, 0.16)"
+              stroke="rgba(0, 0, 0, 0.18)"
               strokeWidth="12"
               filter="blur(5px)"
             />
             {/* Crest highlight on folds */}
             <path
-              d="M 172 88 Q 185 240 178 460"
+              d={`M 172 88 Q 185 240 ${178 + waveHem1} 460`}
               fill="none"
-              stroke="rgba(255, 255, 255, 0.12)"
+              stroke="rgba(255, 255, 255, 0.14)"
               strokeWidth="6"
               filter="blur(3px)"
             />
             <path
-              d="M 228 88 Q 215 240 222 460"
+              d={`M 228 88 Q 215 240 ${222 + waveHem2} 460`}
               fill="none"
-              stroke="rgba(255, 255, 255, 0.12)"
+              stroke="rgba(255, 255, 255, 0.14)"
               strokeWidth="6"
               filter="blur(3px)"
             />
@@ -291,28 +319,28 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
             <path
               d="M 94 200 C 110 215 130 220 150 230"
               fill="none"
-              stroke="rgba(0, 0, 0, 0.22)"
+              stroke="rgba(0, 0, 0, 0.24)"
               strokeWidth="4"
               filter="blur(2px)"
             />
             <path
               d="M 306 200 C 290 215 270 220 250 230"
               fill="none"
-              stroke="rgba(0, 0, 0, 0.22)"
+              stroke="rgba(0, 0, 0, 0.24)"
               strokeWidth="4"
               filter="blur(2px)"
             />
 
             {/* Hem double stitch line */}
             <path
-              d="M 88 462 Q 200 466 312 462"
+              d={`M 88 462 Q 200 466 312 462`}
               fill="none"
-              stroke="rgba(255, 255, 255, 0.14)"
+              stroke="rgba(255, 255, 255, 0.15)"
               strokeWidth="1"
               strokeDasharray="3 2"
             />
             <path
-              d="M 88 466 Q 200 470 312 466"
+              d={`M 88 466 Q 200 470 312 466`}
               fill="none"
               stroke="rgba(0, 0, 0, 0.22)"
               strokeWidth="1"
@@ -325,13 +353,13 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                 <path
                   d="M 346 270 L 372 278"
                   fill="none"
-                  stroke="rgba(0, 0, 0, 0.2)"
+                  stroke="rgba(0, 0, 0, 0.22)"
                   strokeWidth="2"
                 />
                 <path
                   d="M 54 270 L 28 278"
                   fill="none"
-                  stroke="rgba(0, 0, 0, 0.2)"
+                  stroke="rgba(0, 0, 0, 0.22)"
                   strokeWidth="2"
                 />
               </>
@@ -509,6 +537,18 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                   strokeWidth="1.5"
                 />
               </g>
+            )}
+
+            {/* Dynamic ambient darkening overlay when angled in side view */}
+            {lightingDim > 0 && (
+              <rect
+                x="0"
+                y="0"
+                width="400"
+                height="500"
+                fill="#000000"
+                opacity={Math.min(0.4, lightingDim)}
+              />
             )}
           </g>
 
