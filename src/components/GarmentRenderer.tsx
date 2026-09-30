@@ -5,22 +5,20 @@ interface GarmentRendererProps {
   garment: Garment;
   isDetailed?: boolean;
   viewSide?: 'front' | 'back';
-  clothBend?: number; // -1 to 1 sway lag factor
+  clothLagAngle?: number; // small relative angle (-3 to +3 deg)
+  clothSkew?: number;     // small shear factor (-4 to +4 deg)
 }
 
 export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
   garment,
   isDetailed = false,
   viewSide = 'front',
-  clothBend = 0,
+  clothLagAngle = 0,
+  clothSkew = 0,
 }) => {
   const isLongSleeve = garment.category === 'long-sleeve';
-  
-  // Calculate dynamic cloth curvature based on clothBend
-  const swayOffset = clothBend * 18;
-  const bottomSway = clothBend * 32;
 
-  // Wood hanger gradient IDs
+  // Wood hanger color palette
   const hangerWoodColors = {
     walnut: {
       top: '#5A3720',
@@ -101,12 +99,51 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
           <filter id={`${hangerId}-shadow`} x="-20%" y="-20%" width="140%" height="140%">
             <feDropShadow dx="0" dy="5" stdDeviation="4" floodOpacity="0.32" floodColor="#000" />
           </filter>
+
+          {/* Clip path for garment silhouette */}
+          <clipPath id={clipId}>
+            {isLongSleeve ? (
+              <path
+                d="M 152 74
+                   C 170 82 230 82 248 74
+                   C 285 86 335 106 352 136
+                   L 378 280
+                   C 380 295 368 302 354 298
+                   L 334 235
+                   L 326 230
+                   L 318 475
+                   C 260 478 140 478 82 475
+                   L 74 230
+                   L 66 235
+                   L 46 298
+                   C 32 302 20 295 22 280
+                   L 48 136
+                   C 65 106 115 86 152 74 Z"
+              />
+            ) : (
+              <path
+                d="M 152 74
+                   C 170 82 230 82 248 74
+                   C 288 88 340 106 366 142
+                   C 370 148 368 158 358 162
+                   L 326 174
+                   L 318 206
+                   L 310 475
+                   C 260 478 140 478 90 475
+                   L 82 206
+                   L 74 174
+                   L 42 162
+                   C 32 158 30 148 34 142
+                   C 60 106 112 88 152 74 Z"
+              />
+            )}
+          </clipPath>
         </defs>
 
         {/* ---------------- 1. CHROME HANGER HOOK ---------------- */}
         <g id="chrome-hook" className="chrome-hook">
           {/* Swivel metal collar base */}
-          <circle cx="200" cy="52" r="5.5" fill="url(#hangerId-chrome)" />
+          <circle cx="200" cy="52" r="5.5" fill={`url(#${hangerId}-chrome)`} />
           <rect x="198" y="48" width="4" height="8" rx="1.5" fill="#94A3B8" />
 
           {/* Curved Chrome Hook looping over the rod at y=10 */}
@@ -135,7 +172,6 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
 
         {/* ---------------- 2. WOODEN HANGER BODY ---------------- */}
         <g id="wood-hanger" filter={`url(#${hangerId}-shadow)`}>
-          {/* Contoured wooden hanger arms */}
           <path
             d="M 200 52
                C 220 54 285 70 338 102
@@ -165,83 +201,50 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
           <circle cx="200" cy="68" r="1.2" fill="#5A4008" />
         </g>
 
-        {/* ---------------- 3. GARMENT BODY SILHOUETTE ---------------- */}
-        <g id="garment-main-silhouette" transform={`translate(${swayOffset * 0.15}, 0)`}>
-          <clipPath id={clipId}>
-            {isLongSleeve ? (
-              // Long sleeve path with gentle sway distortion
-              <path
-                d={`M 152 74
-                   C 170 82 230 82 248 74
-                   C 285 86 335 106 352 136
-                   L 378 280
-                   C 380 295 368 302 354 298
-                   L 334 235
-                   L 326 230
-                   L ${318 + bottomSway * 0.4} 475
-                   C ${260 + bottomSway * 0.6} 478 ${140 + bottomSway * 0.6} 478 ${82 + bottomSway * 0.4} 475
-                   L 74 230
-                   L 66 235
-                   L 46 298
-                   C 32 302 20 295 22 280
-                   L 48 136
-                   C 65 106 115 86 152 74 Z`}
-              />
-            ) : (
-              // Short sleeve t-shirt path with gentle sway distortion
-              <path
-                d={`M 152 74
-                   C 170 82 230 82 248 74
-                   C 288 88 340 106 366 142
-                   C 370 148 368 158 358 162
-                   L 326 174
-                   L 318 206
-                   L ${310 + bottomSway * 0.5} 475
-                   C ${260 + bottomSway * 0.7} 478 ${140 + bottomSway * 0.7} 478 ${90 + bottomSway * 0.5} 475
-                   L 82 206
-                   L 74 174
-                   L 42 162
-                   C 32 158 30 148 34 142
-                   C 60 106 112 88 152 74 Z`}
-              />
-            )}
-          </clipPath>
-
+        {/* ---------------- 3. GARMENT BODY SILHOUETTE WITH FABRIC DRAPE ---------------- */}
+        <g
+          id="garment-main-silhouette"
+          style={{
+            transformOrigin: '200px 74px',
+            transform: `rotate(${clothLagAngle}deg) skewX(${clothSkew}deg)`,
+            transition: 'transform 0.05s linear',
+          }}
+        >
           {/* Base Fabric Color */}
           {isLongSleeve ? (
             <path
-              d={`M 152 74
+              d="M 152 74
                  C 170 82 230 82 248 74
                  C 285 86 335 106 352 136
                  L 378 280
                  C 380 295 368 302 354 298
                  L 334 235
                  L 326 230
-                 L ${318 + bottomSway * 0.4} 475
-                 C ${260 + bottomSway * 0.6} 478 ${140 + bottomSway * 0.6} 478 ${82 + bottomSway * 0.4} 475
+                 L 318 475
+                 C 260 478 140 478 82 475
                  L 74 230
                  L 66 235
                  L 46 298
                  C 32 302 20 295 22 280
                  L 48 136
-                 C 65 106 115 86 152 74 Z`}
+                 C 65 106 115 86 152 74 Z"
               fill={garment.colorHex}
             />
           ) : (
             <path
-              d={`M 152 74
+              d="M 152 74
                  C 170 82 230 82 248 74
                  C 288 88 340 106 366 142
                  C 370 148 368 158 358 162
                  L 326 174
                  L 318 206
-                 L ${310 + bottomSway * 0.5} 475
-                 C ${260 + bottomSway * 0.7} 478 ${140 + bottomSway * 0.7} 478 ${90 + bottomSway * 0.5} 475
+                 L 310 475
+                 C 260 478 140 478 90 475
                  L 82 206
                  L 74 174
                  L 42 162
                  C 32 158 30 148 34 142
-                 C 60 106 112 88 152 74 Z`}
+                 C 60 106 112 88 152 74 Z"
               fill={garment.colorHex}
             />
           )}
@@ -255,14 +258,14 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
 
             {/* Natural cloth fold shadows & ripples */}
             <path
-              d={`M 160 84 Q ${175 + swayOffset * 0.4} 240 ${165 + bottomSway * 0.5} 470`}
+              d="M 160 84 Q 175 240 165 470"
               fill="none"
               stroke="rgba(0, 0, 0, 0.16)"
               strokeWidth="12"
               filter="blur(5px)"
             />
             <path
-              d={`M 240 84 Q ${225 + swayOffset * 0.4} 240 ${235 + bottomSway * 0.5} 470`}
+              d="M 240 84 Q 225 240 235 470"
               fill="none"
               stroke="rgba(0, 0, 0, 0.16)"
               strokeWidth="12"
@@ -270,14 +273,14 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
             />
             {/* Crest highlight on folds */}
             <path
-              d={`M 172 88 Q ${185 + swayOffset * 0.4} 240 ${178 + bottomSway * 0.5} 460`}
+              d="M 172 88 Q 185 240 178 460"
               fill="none"
               stroke="rgba(255, 255, 255, 0.12)"
               strokeWidth="6"
               filter="blur(3px)"
             />
             <path
-              d={`M 228 88 Q ${215 + swayOffset * 0.4} 240 ${222 + bottomSway * 0.5} 460`}
+              d="M 228 88 Q 215 240 222 460"
               fill="none"
               stroke="rgba(255, 255, 255, 0.12)"
               strokeWidth="6"
@@ -302,14 +305,14 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
 
             {/* Hem double stitch line */}
             <path
-              d={`M ${88 + bottomSway * 0.4} 462 Q ${200 + bottomSway * 0.6} 466 ${312 + bottomSway * 0.4} 462`}
+              d="M 88 462 Q 200 466 312 462"
               fill="none"
               stroke="rgba(255, 255, 255, 0.14)"
               strokeWidth="1"
               strokeDasharray="3 2"
             />
             <path
-              d={`M ${88 + bottomSway * 0.4} 466 Q ${200 + bottomSway * 0.6} 470 ${312 + bottomSway * 0.4} 466`}
+              d="M 88 466 Q 200 470 312 466"
               fill="none"
               stroke="rgba(0, 0, 0, 0.22)"
               strokeWidth="1"
@@ -336,11 +339,7 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
 
             {/* ---------------- 4. GRAPHIC ARTWORK / PRINT ---------------- */}
             {viewSide === 'front' ? (
-              <g
-                id="garment-chest-artwork"
-                transform={`translate(${200 + swayOffset * 0.4}, 210) translate(-200, -210)`}
-                className="transition-transform duration-75"
-              >
+              <g id="garment-chest-artwork">
                 {/* 1. MONOLITH 01 - Bauhaus Architectural Grid */}
                 {garment.graphicType === 'monolith' && (
                   <g className="mix-blend-luminosity">
@@ -361,7 +360,6 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                 {/* 2. TERRA FORM - Modernist Tectonic Typography */}
                 {garment.graphicType === 'typographic' && garment.id === 'ls-terracotta' && (
                   <g>
-                    {/* Chest geometric emblem */}
                     <polygon points="185,155 215,155 200,185" fill={garment.accentColor} opacity="0.9" />
                     <line x1="175" y1="192" x2="225" y2="192" stroke={garment.accentColor} strokeWidth="1.5" opacity="0.7" />
                     <text x="200" y="208" textAnchor="middle" fill={garment.accentColor} fontFamily="Syne, sans-serif" fontSize="11" fontWeight="800" letterSpacing="3">
@@ -370,7 +368,6 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                     <text x="200" y="222" textAnchor="middle" fill={garment.accentColor} fontFamily="Space Mono, monospace" fontSize="7.5" opacity="0.8" letterSpacing="1.5">
                       STRATA STUDY 04
                     </text>
-                    {/* Forearm tectonic lines on left sleeve */}
                     <path
                       d="M 52 205 L 42 255 M 58 200 L 48 250"
                       stroke={garment.accentColor}
@@ -383,7 +380,6 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                 {/* 3. BOTANIC SYSTEM - Herbarium Botanical Etching */}
                 {garment.graphicType === 'botanical' && (
                   <g opacity="0.92">
-                    {/* Fine engraved stem and leaves */}
                     <path
                       d="M 200 150 Q 195 195 200 250 Q 202 275 198 290"
                       fill="none"
@@ -391,12 +387,10 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                       strokeWidth="1.8"
                       strokeLinecap="round"
                     />
-                    {/* Botanical leaves */}
                     <path d="M 200 170 Q 180 160 175 175 Q 188 180 200 175" fill={garment.accentColor} opacity="0.85" />
                     <path d="M 200 185 Q 220 175 225 190 Q 212 195 200 190" fill={garment.accentColor} opacity="0.85" />
                     <path d="M 199 210 Q 178 205 174 220 Q 186 224 199 216" fill={garment.accentColor} opacity="0.85" />
                     <path d="M 200 230 Q 222 225 226 240 Q 214 244 200 236" fill={garment.accentColor} opacity="0.85" />
-                    {/* Herbarium label card */}
                     <rect x="155" y="260" width="90" height="26" fill="rgba(255,255,255,0.12)" stroke={garment.accentColor} strokeWidth="0.8" />
                     <text x="200" y="272" textAnchor="middle" fill={garment.accentColor} fontFamily="serif" fontStyle="italic" fontSize="8.5">
                       Artemisia Absinthium
@@ -444,7 +438,6 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                 {/* 5. ATELIER RAW - Unbleached Ecru Patch Pocket */}
                 {garment.graphicType === 'minimal' && (
                   <g>
-                    {/* Chest patch pocket with stitching */}
                     <path
                       d="M 155 170 L 210 170 L 210 230 L 182.5 245 L 155 230 Z"
                       fill="#E2D9C5"
@@ -452,10 +445,8 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                       strokeWidth="1"
                       strokeDasharray="2.5 2"
                     />
-                    {/* Copper bar tacks */}
                     <rect x="153" y="169" width="4" height="2" fill="#B87333" />
                     <rect x="208" y="169" width="4" height="2" fill="#B87333" />
-                    {/* Blueprint stamping */}
                     <text x="162" y="186" fill="#3D372E" fontFamily="Space Mono, monospace" fontSize="6.5" fontWeight="700">
                       LOT: 04-RAW
                     </text>
@@ -474,7 +465,6 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                   <g>
                     <circle cx="200" cy="205" r="42" fill="none" stroke="rgba(233, 213, 232, 0.25)" strokeWidth="1" />
                     <circle cx="200" cy="205" r="32" fill="none" stroke={garment.accentColor} strokeWidth="2.5" />
-                    {/* Eclipse crescent */}
                     <path
                       d="M 200 175 A 30 30 0 0 1 200 235 A 25 25 0 0 0 200 175"
                       fill={garment.accentColor}
@@ -504,11 +494,7 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
               </g>
             ) : (
               // BACK VIEW
-              <g
-                id="garment-back-artwork"
-                transform={`translate(${200 + swayOffset * 0.4}, 210) translate(-200, -210)`}
-              >
-                {/* Minimalist neck print / atelier brand mark */}
+              <g id="garment-back-artwork">
                 <circle cx="200" cy="130" r="14" fill="none" stroke={garment.accentColor} strokeWidth="1.2" opacity="0.6" />
                 <text x="200" y="133" textAnchor="middle" fill={garment.accentColor} fontFamily="Space Mono, monospace" fontSize="7" fontWeight="700">
                   AR
@@ -516,7 +502,6 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
                 <text x="200" y="160" textAnchor="middle" fill={garment.accentColor} fontFamily="Space Mono, monospace" fontSize="6.5" opacity="0.75" letterSpacing="2">
                   ATELIER RACK EDITION
                 </text>
-                {/* Back yoke seam */}
                 <path
                   d="M 120 120 Q 200 128 280 120"
                   fill="none"
@@ -528,12 +513,10 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
           </g>
 
           {/* ---------------- 5. COLLAR RIBBING & INTERIOR NECK LABEL ---------------- */}
-          {/* Inner back collar interior */}
           <path
             d="M 152 74 C 172 90 228 90 248 74 C 235 66 165 66 152 74 Z"
             fill={garment.collarHex}
           />
-          {/* Woven inner brand tag */}
           <g>
             <rect x="187" y="70" width="26" height="14" rx="1" fill="#FFFFFF" opacity="0.9" />
             <text x="200" y="78" textAnchor="middle" fill="#1A1A1A" fontFamily="Space Mono, monospace" fontSize="4.5" fontWeight="700">
@@ -553,7 +536,6 @@ export const GarmentRenderer: React.FC<GarmentRendererProps> = ({
             stroke="rgba(0,0,0,0.2)"
             strokeWidth="0.8"
           />
-          {/* Collar stitch line */}
           <path
             d="M 154 77 C 170 93 230 93 246 77"
             fill="none"

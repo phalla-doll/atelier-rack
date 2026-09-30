@@ -20,180 +20,219 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
   totalGarments,
   isSelected,
   onSelect,
-  rackSpacing = 135,
+  rackSpacing = 142,
   onNeighborImpulse,
   externalImpulse = 0,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  
-  // Physics state
-  const [angle, setAngle] = useState<number>(0); // in degrees
-  const [clothBend, setClothBend] = useState<number>(0); // -1 to 1 lag factor
-  const [isDragging, setIsDragging] = useState<boolean>(false);
+  // DOM Refs for direct hardware-accelerated transforms (no React re-render thrashing)
+  const slotRef = useRef<HTMLDivElement>(null);
+  const swingWrapperRef = useRef<HTMLDivElement>(null);
+  const clothWrapperRef = useRef<HTMLDivElement>(null);
+  const shadowRef = useRef<HTMLDivElement>(null);
+
+  // Hover state only for UI pill
   const [isHovered, setIsHovered] = useState<boolean>(false);
-  const [slideOffset, setSlideOffset] = useState<number>(0); // small slide along rod
 
-  // Refs for animation frame loop
-  const angleRef = useRef<number>(0);
-  const angularVelocityRef = useRef<number>(0);
-  const clothBendRef = useRef<number>(0);
-  const isDraggingRef = useRef<boolean>(false);
-  const dragStartRef = useRef<{ mouseX: number; mouseY: number; startAngle: number; startSlide: number }>({
-    mouseX: 0,
-    mouseY: 0,
-    startAngle: 0,
-    startSlide: 0,
+  // Physics simulation state (kept strictly in refs for 60/120fps fluid simulation)
+  const physicsRef = useRef({
+    angle: 0,              // Current angle in degrees
+    velocity: 0,           // Angular velocity in deg/frame
+    clothAngle: 0,         // Secondary cloth lag angle
+    clothVelocity: 0,      // Cloth lag velocity
+    isDragging: false,
+    dragStartX: 0,
+    dragStartY: 0,
+    dragStartAngle: 0,
+    hasMovedSignificantly: false,
+    lastMouseX: 0,
+    lastMouseTime: 0,
+    mouseSpeed: 0,
+    lastNeighborTriggerTime: 0,
+    active: true,
   });
-  const prevMouseXRef = useRef<number>(0);
-  const mouseVelocityRef = useRef<number>(0);
-  const lastClinkTimeRef = useRef<number>(0);
 
-  // Apply external impulse (e.g. from neighboring garments clinking or wind/CTA)
+  // Handle external impulses (e.g. from breeze wave or neighbor collision)
   useEffect(() => {
-    if (externalImpulse !== 0 && !isDraggingRef.current) {
-      angularVelocityRef.current += externalImpulse;
-      const now = Date.now();
-      if (now - lastClinkTimeRef.current > 350) {
-        soundEngine.playHangerClink(Math.abs(externalImpulse) * 0.08);
-        lastClinkTimeRef.current = now;
-      }
+    if (externalImpulse !== 0 && !physicsRef.current.isDragging) {
+      physicsRef.current.velocity += externalImpulse;
+      physicsRef.current.active = true;
     }
   }, [externalImpulse]);
 
-  // Main physics animation loop (60fps requestAnimationFrame)
+  // Main 60fps / 120fps Physics Animation Loop
   useEffect(() => {
     let animId: number;
+    let prevTime = performance.now();
 
-    const updatePhysics = () => {
-      if (!isDraggingRef.current) {
-        // Gravity pendulum equation: d^2(theta)/dt^2 = - (g/L) * sin(theta) - damping * d(theta)/dt
-        const gravityFactor = 0.048; // Spring return force
-        const damping = 0.942; // Air resistance damping
+    const tick = (now: number) => {
+      const dt = Math.min((now - prevTime) / 1000, 0.033); // clamp dt to max 33ms
+      prevTime = now;
 
-        const restoringTorque = -Math.sin((angleRef.current * Math.PI) / 180) * 180 * gravityFactor;
-        angularVelocityRef.current = (angularVelocityRef.current + restoringTorque) * damping;
-        angleRef.current += angularVelocityRef.current;
+      const p = physicsRef.current;
 
-        // Slide return spring
-        setSlideOffset((prev) => prev * 0.92);
+      if (!p.isDragging) {
+        // --- 1. Damped Harmonic Pendulum Equation ---
+        // Torque = - (g / L) * sin(theta) - damping * velocity
+        const springK = 38.0;   // Spring return frequency
+        const damping = 3.2;    // Damping resistance
 
-        // Cloth inertia lag: cloth bend opposes angular acceleration and velocity
-        const targetBend = Math.max(-0.8, Math.min(0.8, -angularVelocityRef.current * 0.12));
-        clothBendRef.current += (targetBend - clothBendRef.current) * 0.22;
+        const angleRad = (p.angle * Math.PI) / 180;
+        const restoringAcc = -Math.sin(angleRad) * springK;
+        const dampingAcc = -p.velocity * damping;
 
-        // If movement is very small, sleep to save cycles
-        if (Math.abs(angularVelocityRef.current) < 0.005 && Math.abs(angleRef.current) < 0.05) {
-          angleRef.current = 0;
-          angularVelocityRef.current = 0;
-          clothBendRef.current = 0;
+        // Semi-implicit Euler integration for perfect numerical stability
+        p.velocity += (restoringAcc + dampingAcc) * dt;
+        p.angle += p.velocity * dt * 60;
+
+        // Clamp maximum angle to prevent unnatural over-rotation
+        if (p.angle > 24) {
+          p.angle = 24;
+          p.velocity = -Math.abs(p.velocity) * 0.4;
+        } else if (p.angle < -24) {
+          p.angle = -24;
+          p.velocity = Math.abs(p.velocity) * 0.4;
         }
 
-        setAngle(angleRef.current);
-        setClothBend(clothBendRef.current);
-      } else {
-        // During dragging, cloth lags behind the hand motion
-        const targetBend = Math.max(-0.9, Math.min(0.9, -mouseVelocityRef.current * 0.04));
-        clothBendRef.current += (targetBend - clothBendRef.current) * 0.35;
-        setClothBend(clothBendRef.current);
+        // --- 2. Secondary Cloth Drape Inertia ---
+        // Cloth bottom lags behind the hanger motion smoothly
+        const targetClothAngle = -p.velocity * 0.16;
+        const clothSpring = 24.0;
+        const clothDamping = 4.5;
+        const clothAcc = (targetClothAngle - p.clothAngle) * clothSpring - p.clothVelocity * clothDamping;
+        p.clothVelocity += clothAcc * dt;
+        p.clothAngle += p.clothVelocity * dt * 60;
+        p.clothAngle = Math.max(-5, Math.min(5, p.clothAngle));
+
+        // Neighbor collision detection (when swinging wide)
+        if (Math.abs(p.angle) > 13.5 && onNeighborImpulse) {
+          const currentTime = performance.now();
+          if (currentTime - p.lastNeighborTriggerTime > 320) {
+            p.lastNeighborTriggerTime = currentTime;
+            if (p.angle > 0 && index < totalGarments - 1) {
+              onNeighborImpulse(index + 1, Math.min(p.velocity * 0.35, 2.5));
+              soundEngine.playHangerClink(0.28);
+            } else if (p.angle < 0 && index > 0) {
+              onNeighborImpulse(index - 1, Math.max(p.velocity * 0.35, -2.5));
+              soundEngine.playHangerClink(0.28);
+            }
+          }
+        }
+
+        // Energy sleep check to stop idle CPU usage
+        if (Math.abs(p.angle) < 0.04 && Math.abs(p.velocity) < 0.04 && Math.abs(p.clothAngle) < 0.04) {
+          p.angle = 0;
+          p.velocity = 0;
+          p.clothAngle = 0;
+          p.clothVelocity = 0;
+        }
       }
 
-      animId = requestAnimationFrame(updatePhysics);
+      // --- 3. Direct Hardware Transform Application ---
+      if (swingWrapperRef.current) {
+        swingWrapperRef.current.style.transform = `rotate(${p.angle.toFixed(2)}deg)`;
+      }
+
+      if (clothWrapperRef.current) {
+        const skew = (-p.clothAngle * 0.8).toFixed(2);
+        clothWrapperRef.current.style.transform = `rotate(${p.clothAngle.toFixed(2)}deg) skewX(${skew}deg)`;
+      }
+
+      if (shadowRef.current) {
+        const shadowX = (-p.angle * 1.5).toFixed(1);
+        shadowRef.current.style.transform = `translateX(${shadowX}px) translateY(12px)`;
+      }
+
+      animId = requestAnimationFrame(tick);
     };
 
-    animId = requestAnimationFrame(updatePhysics);
+    animId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animId);
-  }, []);
+  }, [index, totalGarments, onNeighborImpulse]);
 
-  // Mouse hover sway
-  const handleMouseEnter = (e: React.MouseEvent) => {
+  // --- Steady Hit Box Mouse Handlers (NO jitter/re-triggering) ---
+  const handlePointerEnter = (e: React.PointerEvent) => {
     setIsHovered(true);
-    prevMouseXRef.current = e.clientX;
-    soundEngine.playClothRustle(0.4);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDraggingRef.current) return;
-
-    const currentX = e.clientX;
-    const deltaX = currentX - prevMouseXRef.current;
-    prevMouseXRef.current = currentX;
-
-    // Apply gentle sweep impulse if cursor is moving fast across rack
-    if (Math.abs(deltaX) > 2) {
-      const impulse = Math.max(-4, Math.min(4, deltaX * 0.35));
-      angularVelocityRef.current += impulse;
-
-      // Ripple to neighbors
-      if (Math.abs(impulse) > 1.8 && onNeighborImpulse) {
-        if (deltaX > 0 && index < totalGarments - 1) {
-          onNeighborImpulse(index + 1, impulse * 0.45);
-        } else if (deltaX < 0 && index > 0) {
-          onNeighborImpulse(index - 1, impulse * 0.45);
-        }
-      }
-    }
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-  };
-
-  // Pointer Drag Handling
-  const handlePointerDown = (e: React.PointerEvent) => {
-    // Only left click
-    if (e.button !== 0) return;
-
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-
-    setIsDragging(true);
-    isDraggingRef.current = true;
-    dragStartRef.current = {
-      mouseX: e.clientX,
-      mouseY: e.clientY,
-      startAngle: angleRef.current,
-      startSlide: slideOffset,
-    };
-    prevMouseXRef.current = e.clientX;
-    mouseVelocityRef.current = 0;
-
-    soundEngine.playHangerClink(0.4);
+    const p = physicsRef.current;
+    p.lastMouseX = e.clientX;
+    p.lastMouseTime = performance.now();
+    soundEngine.playClothRustle(0.3);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
+    const p = physicsRef.current;
 
-    const deltaX = e.clientX - dragStartRef.current.mouseX;
-    const mouseVel = e.clientX - prevMouseXRef.current;
-    mouseVelocityRef.current = mouseVel;
-    prevMouseXRef.current = e.clientX;
+    if (p.isDragging) {
+      // DRAGGING PHYSICS
+      const deltaX = e.clientX - p.dragStartX;
+      if (Math.abs(deltaX) > 4) {
+        p.hasMovedSignificantly = true;
+      }
 
-    // Pendulum angle based on horizontal pull from pivot (pivot length ~ 240px)
-    const newAngle = Math.max(-42, Math.min(42, dragStartRef.current.startAngle + deltaX * 0.28));
-    angleRef.current = newAngle;
-    setAngle(newAngle);
+      // Compute angle directly from horizontal pull relative to hanger pivot (~240px drop)
+      const targetAngle = Math.max(-28, Math.min(28, p.dragStartAngle + deltaX * 0.22));
+      const prevAngle = p.angle;
+      p.angle += (targetAngle - p.angle) * 0.35; // Smooth spring lag
+      p.velocity = (p.angle - prevAngle) * 0.8;  // Store release velocity
 
-    // Minor sliding along rod
-    const newSlide = Math.max(-28, Math.min(28, dragStartRef.current.startSlide + deltaX * 0.15));
-    setSlideOffset(newSlide);
+      p.clothAngle = Math.max(-6, Math.min(6, (p.angle - targetAngle) * 0.4));
+      return;
+    }
 
-    // Ripple clink to neighbors if pushed wide
-    if (Math.abs(newAngle) > 18 && onNeighborImpulse) {
-      const now = Date.now();
-      if (now - lastClinkTimeRef.current > 260) {
-        if (newAngle > 0 && index < totalGarments - 1) {
-          onNeighborImpulse(index + 1, (newAngle / 40) * 2.5);
-        } else if (newAngle < 0 && index > 0) {
-          onNeighborImpulse(index - 1, (newAngle / 40) * 2.5);
-        }
-        soundEngine.playHangerClink(0.3);
-        lastClinkTimeRef.current = now;
+    // HOVER SWAY PHYSICS
+    const now = performance.now();
+    const dt = Math.max((now - p.lastMouseTime) / 1000, 0.008);
+    const deltaX = e.clientX - p.lastMouseX;
+    p.lastMouseX = e.clientX;
+    p.lastMouseTime = now;
+
+    // Calculate smoothed mouse speed across the garment
+    const instantSpeed = deltaX / dt; // px per second
+    p.mouseSpeed = p.mouseSpeed * 0.6 + instantSpeed * 0.4;
+
+    // Apply gentle, bounded brush impulse in the direction of the cursor movement
+    if (Math.abs(p.mouseSpeed) > 120) {
+      const impulse = Math.max(-2.2, Math.min(2.2, (p.mouseSpeed / 600) * 1.8));
+      // Only inject if moving in same direction or adding gentle push
+      if (Math.sign(impulse) === Math.sign(p.mouseSpeed) && Math.abs(p.velocity) < 6) {
+        p.velocity += impulse * 0.25;
       }
     }
   };
 
+  const handlePointerLeave = () => {
+    setIsHovered(false);
+    const p = physicsRef.current;
+    p.mouseSpeed = 0;
+  };
+
+  // --- Pointer Drag Start ---
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return; // Left click only
+
+    e.preventDefault();
+    const p = physicsRef.current;
+    p.isDragging = true;
+    p.hasMovedSignificantly = false;
+    p.dragStartX = e.clientX;
+    p.dragStartY = e.clientY;
+    p.dragStartAngle = p.angle;
+    p.velocity = 0;
+
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+
+    soundEngine.playHangerClink(0.35);
+  };
+
+  // --- Pointer Drag Release ---
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
+    const p = physicsRef.current;
+    if (!p.isDragging) return;
+
+    p.isDragging = false;
 
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
@@ -201,82 +240,73 @@ export const GarmentPhysicsItem: React.FC<GarmentPhysicsItemProps> = ({
       // ignore
     }
 
-    const wasDragging = Math.abs(e.clientX - dragStartRef.current.mouseX) > 5;
-    isDraggingRef.current = false;
-    setIsDragging(false);
-
-    // Impart release momentum based on recent velocity
-    angularVelocityRef.current = Math.max(-9, Math.min(9, mouseVelocityRef.current * 0.65));
-
-    // If it was just a clean click without significant drag, open detail view
-    if (!wasDragging) {
-      soundEngine.playClothRustle(0.6);
+    // If it was a clean click without significant drag, open detail view
+    if (!p.hasMovedSignificantly) {
+      soundEngine.playClothRustle(0.5);
       onSelect(garment);
     } else {
-      soundEngine.playHangerClink(0.5);
+      // Released from drag: clamp release velocity for natural swing
+      p.velocity = Math.max(-5.5, Math.min(5.5, p.velocity));
+      soundEngine.playHangerClink(0.4);
     }
   };
 
-  // Quick manual nudge
-  const triggerNudge = useCallback((direction: number) => {
-    angularVelocityRef.current += direction * 3.5;
-    soundEngine.playHangerClink(0.35);
-  }, []);
-
   return (
     <div
-      ref={containerRef}
-      style={{
-        width: `${rackSpacing}px`,
-        transform: `translateX(${slideOffset}px)`,
-      }}
-      className="relative flex flex-col items-center flex-shrink-0 cursor-grab active:cursor-grabbing select-none group"
-      onMouseEnter={handleMouseEnter}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      ref={slotRef}
+      style={{ width: `${rackSpacing}px` }}
+      className="relative flex flex-col items-center flex-shrink-0 select-none"
     >
-      {/* Rod Contact Hook Glider */}
-      <div className="absolute -top-[14px] w-3 h-5 bg-gradient-to-b from-slate-200 to-slate-400 rounded-full shadow-sm z-30 opacity-90 pointer-events-none" />
+      {/* Rod Contact Hook Glider on the Chrome Rod */}
+      <div className="absolute -top-[14px] w-3 h-5 bg-gradient-to-b from-slate-200 via-slate-300 to-slate-400 rounded-full shadow-xs z-30 opacity-90 pointer-events-none" />
 
-      {/* Main Swinging Garment Assembly */}
+      {/* SWINGING ASSEMBLY LAYER (Hardware-accelerated transform via Ref) */}
       <div
+        ref={swingWrapperRef}
         style={{
-          transformOrigin: '50% 12px', // Pivoting right at the top of the chrome hook
-          transform: `rotate(${angle}deg)`,
-          transition: isDragging ? 'none' : 'box-shadow 0.2s ease',
+          transformOrigin: '50% 12px', // Pivot at top of hook
+          willChange: 'transform',
         }}
-        className={`relative garment-rack-shadow transition-transform duration-75 ease-linear ${
-          isSelected ? 'opacity-20 pointer-events-none scale-95' : 'opacity-100'
+        className={`relative garment-rack-shadow ${
+          isSelected ? 'opacity-25 pointer-events-none scale-95' : 'opacity-100'
         }`}
       >
-        <GarmentRenderer garment={garment} isDetailed={false} clothBend={clothBend} />
-
-        {/* Dynamic drop shadow on the wall that moves with angle */}
+        {/* Dynamic drop shadow on pegboard wall */}
         <div
-          style={{
-            transform: `translateX(${-angle * 1.4}px) translateY(12px) scale(${1 - Math.abs(angle) * 0.005})`,
-            opacity: 0.16 + (isHovered ? 0.08 : 0),
-          }}
-          className="absolute inset-0 bg-stone-900 rounded-3xl blur-xl -z-10 pointer-events-none transition-all duration-100"
+          ref={shadowRef}
+          className="absolute inset-0 bg-stone-900/18 rounded-3xl blur-xl -z-10 pointer-events-none"
+          style={{ willChange: 'transform' }}
         />
+
+        {/* Render Garment with dedicated cloth wrapper for drape lag */}
+        <div ref={clothWrapperRef} style={{ transformOrigin: '50% 80px', willChange: 'transform' }}>
+          <GarmentRenderer garment={garment} isDetailed={false} />
+        </div>
       </div>
 
-      {/* Floating Info Pill on Hover / Drag */}
+      {/* STATIC INVISIBLE HIT-BOX OVERLAY (Prevents mouse event jitter during swings) */}
       <div
-        className={`absolute bottom-[-18px] flex flex-col items-center pointer-events-none transition-all duration-200 ${
-          isHovered || isDragging ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'
+        className="absolute inset-0 top-0 h-[360px] z-40 cursor-grab active:cursor-grabbing touch-none"
+        onPointerEnter={handlePointerEnter}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      />
+
+      {/* Floating Info Pill on Hover */}
+      <div
+        className={`absolute bottom-[-16px] flex flex-col items-center pointer-events-none transition-all duration-200 z-50 ${
+          isHovered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'
         }`}
       >
-        <div className="flex items-center gap-1.5 px-3 py-1 bg-stone-900/90 text-stone-100 backdrop-blur-sm rounded-full text-[11px] font-medium shadow-lg whitespace-nowrap">
+        <div className="flex items-center gap-1.5 px-3 py-1 bg-stone-900/90 text-stone-100 backdrop-blur-sm rounded-full text-[11px] font-medium shadow-md whitespace-nowrap">
           <span className="font-semibold">{garment.name}</span>
           <span className="text-stone-400 font-mono">·</span>
           <span className="text-stone-300 font-mono tabular-nums">${garment.price}</span>
         </div>
-        <div className="text-[10px] text-stone-600 mt-1 uppercase tracking-wider font-mono">
+        <div className="text-[9px] text-stone-500 mt-0.5 uppercase tracking-wider font-mono">
           Click to inspect
         </div>
       </div>

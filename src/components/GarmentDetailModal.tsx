@@ -127,7 +127,6 @@ export const GarmentDetailModal: React.FC<GarmentDetailModalProps> = ({
               garment={garment}
               isDetailed={true}
               viewSide={viewSide}
-              clothBend={0}
             />
           </div>
 
