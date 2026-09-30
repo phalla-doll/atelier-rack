@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { GARMENTS } from './data/garments.ts';
 import { Garment } from './types.ts';
 import { TopNav } from './components/TopNav.tsx';
@@ -13,29 +13,59 @@ export default function App() {
   const [selectedGarment, setSelectedGarment] = useState<Garment | null>(null);
   const [filter, setFilter] = useState<'all' | 't-shirt' | 'long-sleeve'>('all');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  
-  // External impulses map for ripple physics waves across the rack
-  const [impulses, setImpulses] = useState<Record<number, number>>({});
+  const [breezeImpulses, setBreezeImpulses] = useState<Record<number, number>>({});
+
+  const rackTrackRef = useRef<HTMLDivElement>(null);
+  const lastHoveredRef = useRef<number | null>(null);
 
   const filteredGarments = GARMENTS.filter((g) => {
     if (filter === 'all') return true;
     return g.category === filter;
   });
 
-  // Neighbor impulse propagation (when one shirt swings wide, it gently clinks its neighbors)
-  const handleNeighborImpulse = useCallback((neighborIndex: number, impulse: number) => {
-    setImpulses((prev) => ({
-      ...prev,
-      [neighborIndex]: (prev[neighborIndex] || 0) + impulse,
-    }));
+  const slotSpacing = 82;
 
-    setTimeout(() => {
-      setImpulses((prev) => {
-        const next = { ...prev };
-        delete next[neighborIndex];
-        return next;
-      });
-    }, 180);
+  // Unified Rack Pointer Tracker (100% stable, zero hit-box chatter)
+  const handleRackPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!rackTrackRef.current) return;
+    const rect = rackTrackRef.current.getBoundingClientRect();
+    const relativeX = e.clientX - rect.left;
+
+    // Guard vertical range: only active near the rack
+    if (e.clientY < rect.top - 20 || e.clientY > rect.bottom + 20) {
+      if (lastHoveredRef.current !== null) {
+        lastHoveredRef.current = null;
+        setHoveredIndex(null);
+      }
+      return;
+    }
+
+    const totalWidth = filteredGarments.length * slotSpacing;
+    const startX = (rect.width - totalWidth) / 2;
+    const offsetInTrack = relativeX - startX;
+
+    if (offsetInTrack < -20 || offsetInTrack > totalWidth + 20) {
+      if (lastHoveredRef.current !== null) {
+        lastHoveredRef.current = null;
+        setHoveredIndex(null);
+      }
+      return;
+    }
+
+    const index = Math.max(0, Math.min(filteredGarments.length - 1, Math.floor(offsetInTrack / slotSpacing)));
+
+    if (index !== lastHoveredRef.current) {
+      lastHoveredRef.current = index;
+      setHoveredIndex(index);
+      soundEngine.playRodSlide(0.35);
+      soundEngine.playClothRustle(0.4);
+    }
+  }, [filteredGarments.length, slotSpacing]);
+
+  const handleRackPointerLeave = useCallback(() => {
+    lastHoveredRef.current = null;
+    setHoveredIndex(null);
+    soundEngine.playClothRustle(0.25);
   }, []);
 
   // "Simulate Breeze Wave" - ripples all garments along the rack sequentially
@@ -43,21 +73,21 @@ export default function App() {
     soundEngine.playClothRustle(0.9);
     filteredGarments.forEach((_, idx) => {
       setTimeout(() => {
-        const direction = (idx % 2 === 0 ? 1 : -1) * (4.2 - Math.random() * 1.2);
-        setImpulses((prev) => ({
+        const direction = (idx % 2 === 0 ? 1 : -1) * (3.8 - Math.random() * 1.0);
+        setBreezeImpulses((prev) => ({
           ...prev,
           [idx]: direction,
         }));
         soundEngine.playHangerClink(0.22);
 
         setTimeout(() => {
-          setImpulses((prev) => {
+          setBreezeImpulses((prev) => {
             const next = { ...prev };
             delete next[idx];
             return next;
           });
-        }, 220);
-      }, idx * 100);
+        }, 450);
+      }, idx * 90);
     });
   }, [filteredGarments]);
 
@@ -71,12 +101,13 @@ export default function App() {
 
   // Reset rack positions
   const handleResetRack = useCallback(() => {
-    setImpulses({});
+    setBreezeImpulses({});
+    lastHoveredRef.current = null;
     setHoveredIndex(null);
     soundEngine.playHangerClink(0.4);
   }, []);
 
-  // When detail view closes, the rack background sharpens and the garments settle naturally
+  // When detail view closes, return smoothly to rack
   const handleCloseDetail = useCallback(() => {
     setSelectedGarment(null);
     soundEngine.playHangerClink(0.3);
@@ -90,6 +121,7 @@ export default function App() {
         activeFilter={filter}
         onFilterChange={(f) => {
           setFilter(f);
+          lastHoveredRef.current = null;
           setHoveredIndex(null);
         }}
         onNudgeAll={handleBreezeWave}
@@ -116,12 +148,15 @@ export default function App() {
 
         {/* Clothing Rod & Hanging Garments Section */}
         <div className="w-full max-w-5xl relative flex flex-col items-center px-4 sm:px-6">
-          {/* Chrome Rod Mounted to the Wall */}
+          {/* Chrome Rod Mounted to the Wall with Industrial Plates */}
           <ClothingRod />
 
-          {/* Hanging Garments Container with 3D Perspective */}
+          {/* Unified Interactive Track Container (Eliminates all hover jank) */}
           <div
-            className="w-full overflow-x-auto overflow-y-visible py-5 scrollbar-none flex justify-center"
+            ref={rackTrackRef}
+            onPointerMove={handleRackPointerMove}
+            onPointerLeave={handleRackPointerLeave}
+            className="w-full overflow-x-auto overflow-y-visible py-5 scrollbar-none flex justify-center cursor-pointer select-none"
             style={{ perspective: '1400px' }}
           >
             <div
@@ -137,10 +172,8 @@ export default function App() {
                   isSelected={selectedGarment?.id === garment.id}
                   onSelect={(g) => setSelectedGarment(g)}
                   hoveredIndex={hoveredIndex}
-                  onHoverChange={setHoveredIndex}
-                  slotSpacing={78}
-                  onNeighborImpulse={handleNeighborImpulse}
-                  externalImpulse={impulses[index] || 0}
+                  slotSpacing={slotSpacing}
+                  breezeImpulse={breezeImpulses[index] || 0}
                 />
               ))}
             </div>
