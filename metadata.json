@@ -1,0 +1,6 @@
+{
+  "name": "ATELIER RACK — Interactive Apparel Showcase",
+  "description": "An interactive clothing-rack portfolio and apparel design showcase featuring realistic cloth and hanger physics, tactile garment interaction, and detailed product view.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: #F5F1E8;
+    color: #1A1A1A;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Pegboard Wall Pattern */
+.pegboard-bg {
+  background-color: #F4EFE6;
+  background-image: 
+    radial-gradient(circle, rgba(165, 150, 130, 0.45) 1.75px, transparent 2.2px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.75) 1.5px, transparent 1.9px);
+  background-size: 32px 32px, 32px 32px;
+  background-position: 0 0, 0 1px;
+}
+
+/* Chrome Rod Sheen */
+.chrome-rod {
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #e8ecef 12%,
+    #a8b3be 32%,
+    #535c66 52%,
+    #8b98a5 68%,
+    #cbd5e1 88%,
+    #475569 100%
+  );
+  box-shadow: 
+    0 8px 18px -4px rgba(0, 0, 0, 0.22),
+    0 2px 4px rgba(0, 0, 0, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.chrome-hook {
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.25));
+}
+
+/* Wood Hanger Gradients */
+.wood-walnut {
+  background: linear-gradient(135deg, #4A2E1B 0%, #683E25 40%, #54331D 70%, #3B2313 100%);
+}
+
+.wood-oak {
+  background: linear-gradient(135deg, #8A603E 0%, #A97C52 40%, #916843 70%, #6B492B 100%);
+}
+
+.wood-natural-birch {
+  background: linear-gradient(135deg, #D4B996 0%, #E5CEAC 40%, #CBB08C 70%, #B3956F 100%);
+}
+
+/* Garment Shadow */
+.garment-rack-shadow {
+  filter: drop-shadow(0 20px 24px rgba(28, 25, 23, 0.18))
+          drop-shadow(0 4px 8px rgba(28, 25, 23, 0.10));
+}
+
+.garment-detail-shadow {
+  filter: drop-shadow(0 35px 35px rgba(20, 18, 16, 0.28))
+          drop-shadow(0 10px 14px rgba(20, 18, 16, 0.15));
+}
+
+/* Custom marquee ticker animation */
+@keyframes tickerMove {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-ticker {
+  display: flex;
+  width: max-content;
+  animation: tickerMove 36s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+/* Smooth custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.32);
+}
